@@ -4,6 +4,13 @@ Finding, keying and translating shaders (`dm/gfx/tools/shader_split.py`, `dmsh_b
 
 ## Containers by engine
 
+### Sumo Ninty_NX shaders and MuxFDMR streams
+
+- **Symptom:** the split finds no shaders in `main` or RomFS, while reporting control sections in `main` with no code area. The game has `.sp4` resources and loose `.nvnbin` files rather than BNSH archives or whole GLSLC outputs.
+- **Cause:** Sumo's `Ninty_NX` descriptors store control/code offsets relative to their container, whose start is recovered from the descriptor's own relative offset. The code is not necessarily adjacent to its control section. `MuxFDMR` version 2 resources wrap these containers in one or two zlib streams; their header holds both the stored and decoded lengths. Loose `NVNsh` version 1 records instead name one stage and its control/code ranges directly.
+- **Fix:** `shader_split.py` reads the bounded descriptor ranges and loose records, checks each stage through the existing control/code validation, and scans decoded Mux members recursively. It validates container versions, non-overlapping ranges, complete zlib frames and exact decoded lengths before accepting their shaders. Detection follows the format bytes, not a filename or title ID. Original control/code bytes and shader keys are preserved; single-stage vertex programs use the existing pixel-input cover. `test_sumo.py` covers embedded containers, loose records, compressed members, malformed input and file-scanner integration.
+- **Found on:** Team Sonic Racing 1.0.3 (`010092B0091D0000`, provisional profile): 337 `.sp4` resources contain 28,258 descriptors, `main` holds 586, and two `.nvnbin` files hold four stages. The split finds 4,516 unique shaders (2,116 vertex, 2,399 pixel, one compute), against zero before.
+
 ### Phyre NVN effects in Virtuos VBF archives
 
 - **Symptom:** the shader split finds no game programs despite loose `.fx.phyre` effects and multi-GB `.vbf` archives.
